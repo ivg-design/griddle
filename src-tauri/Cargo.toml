@@ -1,6 +1,6 @@
 [package]
 name = "griddle"
-version = "1.0.3"
+version = "1.0.4"
 description = "Griddle — floating panel that authors snappable grid guides in the Rive editor via its MCP server"
 authors = ["IVG Design"]
 edition = "2021"

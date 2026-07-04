@@ -731,27 +731,55 @@ $("create").addEventListener("click", async () => {
   }
 });
 
+// The editor's delete_objects doesn't reliably cascade — deleting a shape
+// can leave its child paths orphaned in the file (invisible in the
+// hierarchy but still selectable as ghosts). Collect the whole subtree and
+// delete it deepest-first so nothing is left behind.
+async function collectSubtree(rootIds) {
+  const res = await mcp("query_objects", { objectIds: rootIds, depth: 10 });
+  const byId = {};
+  for (const o of res.objects || []) byId[o.id] = o;
+  const out = [];
+  const visit = id => {
+    const o = byId[id];
+    if (o) for (const c of o.children || []) visit(c);
+    out.push(id); // post-order: children before parents
+  };
+  for (const r of rootIds) visit(r);
+  return out;
+}
+
 $("removeLast").addEventListener("click", async () => {
+  const btn = $("removeLast");
+  btn.disabled = true;
   try {
     if (!lastIds.length) throw new Error("Nothing to remove.");
-    await mcp("delete_objects", { objectIds: lastIds });
-    status(`Removed ${lastLabel}.`, "ok");
+    status("Removing…");
+    const ids = await collectSubtree(lastIds);
+    await mcp("delete_objects", { objectIds: ids });
+    status(`Removed ${lastLabel} (${ids.length} objects).`, "ok");
     lastIds = []; lastLabel = "";
-    $("removeLast").disabled = true;
   } catch (e) {
     status(String(e.message || e), "err");
+    btn.disabled = !lastIds.length;
   }
 });
 
+// Keep trying until Rive is up with a file open — so launch order never
+// matters (Griddle can start before the editor or before a file is opened).
 (async () => {
   syncVisibility();
   try { const v = await window.__TAURI__.app.getVersion(); document.getElementById("appver").textContent = "v" + v; } catch (e) {}
-  try {
-    await loadArtboards();
-    await fitArtboard();
-    status("Connected to Rive MCP.", "ok");
-  } catch (e) {
-    status("Rive MCP not reachable at 127.0.0.1:9791 — is the editor running? " + (e.message || e), "err");
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await loadArtboards();
+      await fitArtboard();
+      status("Connected to Rive MCP.", "ok");
+      return;
+    } catch (e) {
+      status(`Waiting for Rive (editor running with a file open?)… retry ${attempt + 1}. ${e.message || e}`, "err");
+      await new Promise(r => setTimeout(r, 3000));
+    }
   }
 })();
 </script>
