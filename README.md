@@ -4,6 +4,10 @@
 
 **Custom grids × Rive.** A tiny always-on-top panel that authors **snappable grid guides** directly in the Rive editor by talking to its MCP server — fully deterministic, no agent, no AI.
 
+## Demo
+
+https://github.com/user-attachments/assets/d84c0d76-1ec3-4a02-b21a-2ad90464b854
+
 ## Why
 
 Script-rendered grids (node scripts, path effects) are computed at render time, so the Rive editor's vertex snapping never sees them. Griddle instead authors **real `PointsPath` geometry** through the editor's own MCP tooling: every grid line endpoint and lattice point is a genuine, snappable vertex.
