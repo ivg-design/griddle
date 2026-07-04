@@ -45,7 +45,7 @@ jobs:
           releaseBody: |
             Griddle — a floating panel that authors snappable grid guides in the Rive editor via its MCP server. Deterministic: no agent, no AI.
 
-            14 grid types: rectangular, dot (dash-ready / crosses), baseline, brick, isometric, triangular, diamond, hexagonal, polar, 1-point & 2-point perspective, golden ratio, rule of thirds, layout columns.
+            14 grid types: rectangular (+cell gutters), dot (snap crosses), baseline, brick, isometric, triangular, diamond, hexagonal, polar, 1-point & 2-point perspective, golden ratio, rule of thirds, layout columns.
 
             Requires the Rive editor running with a file open (MCP server on 127.0.0.1:9791).
 

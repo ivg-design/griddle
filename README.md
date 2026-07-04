@@ -18,7 +18,7 @@ The Rive editor exposes an MCP server over HTTP at `http://127.0.0.1:9791/mcp` (
 
 ## Grid types (14)
 
-- **Cartesian:** Rectangular (+subdivisions), Dot (dash-ready rows or snap crosses), Baseline (leading +subdivisions), Brick (offset running bond)
+- **Cartesian:** Rectangular (+subdivisions, +cell gutters), Dot (snap crosses — the lattice point is a path vertex), Baseline (leading +subdivisions), Brick (offset running bond)
 - **Angular:** Isometric (angle + optional verticals), Triangular, Diamond, Hexagonal (pointy-top honeycomb — shared row boundaries authored as single zigzag polylines, every hex corner snappable), Polar (concentric rings + spokes, movable center)
 - **Perspective:** One-point (VP + horizon + receding floor lines), Two-point (two VPs, off-canvas positions allowed)
 - **Composition:** Golden ratio (phi lines + spiral), Rule of thirds, Layout columns (count/gutter/margin)
@@ -30,7 +30,7 @@ Subdivisions mean "divide each cell into N parts" (N−1 minor lines; 0/1 = none
 - Artboard picker (auto-selects the active one) + auto-fit to artboard size
 - Custom shape name (auto `Guides_<type>_N` if blank)
 - Single shape + single styling by default; a **Separate subdivision style** toggle creates a grouped container with `_major`/`_sub` children so majors and minors get independent native strokes
-- **Dot grid, dash-ready:** emits one line per row with a round cap pre-set — add a Dash effect (dash `0.1`, gap `cell − 0.1`) and every dash collapses into a dot the size of the stroke width
+- **True path metrics:** every segment path is authored open (Rive-created paths default to closed, which doubles measured path length — forward plus the closing chord), so dash effects and length-based tooling behave correctly on Griddle guides
 - Path-count caps with auto-doubled spacing so a tiny cell can't flood the file
 - **Remove last** deletes exactly the shapes it just created
 
