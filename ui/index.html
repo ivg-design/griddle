@@ -130,6 +130,7 @@
       <div class="row" id="p-margin"><label>Margin (px)</label><input type="number" id="margin" value="0" min="0" max="500" /></div>
       <div class="row" id="p-brickw"><label>Brick width (px)</label><input type="number" id="brickw" value="100" min="4" max="1000" /></div>
       <div class="row" id="p-spiral"><label>Golden spiral</label><input type="checkbox" id="spiral" checked /></div>
+      <div class="row" id="p-truespiral"><label>True &phi; proportions</label><input type="checkbox" id="truespiral" checked title="Fit the largest golden rectangle (circular arcs). Unchecked: stretch the spiral to fill the area (arcs become ellipses)" /></div>
       <div class="row" id="p-border"><label>Border</label><input type="checkbox" id="border" checked /></div>
     </div>
   </details>
@@ -440,7 +441,16 @@ function buildGrid(p) {
     const gx = w / phi, gy = h / phi;
     major.push([w - gx, 0, w - gx, h], [gx, 0, gx, h], [0, h - gy, w, h - gy], [0, gy, w, gy]);
     if (spiral) {
-      const sx = w / phi, sy = h;
+      // Stretch mode fills the whole area (arcs become ellipse quarters and
+      // align with the phi lines). True mode inscribes the largest golden
+      // rectangle, centered, so the arcs stay perfectly circular.
+      let sx = w / phi, sy = h, ox2 = 0, oy2 = 0;
+      if (p.truespiral) {
+        let gw, gh;
+        if (w / h >= phi) { gh = h; gw = h * phi; } else { gw = w; gh = w / phi; }
+        sx = gw / phi; sy = gh;
+        ox2 = (w - gw) / 2; oy2 = (h - gh) / 2;
+      }
       let x = 0, y = 0, rw = phi, rh = 1, d = 0;
       for (let i = 0; i < 10; i++) {
         let s, S, E, C, div;
@@ -457,17 +467,17 @@ function buildGrid(p) {
           s = rw; S = [x + s, y + rh]; E = [x, y + rh - s]; C = [x + s, y + rh - s];
           div = [x, y + rh - s, x + s, y + rh - s]; rh -= s;
         }
-        minor.push([div[0] * sx, div[1] * sy, div[2] * sx, div[3] * sy]);
+        minor.push([div[0] * sx + ox2, div[1] * sy + oy2, div[2] * sx + ox2, div[3] * sy + oy2]);
         // quarter-arc cubic with tangent magnitude = radius
         const r0 = [S[0] - C[0], S[1] - C[1]], r1 = [E[0] - C[0], E[1] - C[1]];
         const ch = [E[0] - S[0], E[1] - S[1]];
         let t0 = [-r0[1], r0[0]]; if (t0[0] * ch[0] + t0[1] * ch[1] < 0) t0 = [r0[1], -r0[0]];
         let t1 = [-r1[1], r1[0]]; if (t1[0] * ch[0] + t1[1] * ch[1] < 0) t1 = [r1[1], -r1[0]];
-        if (i === 0) spiralStart = { x: S[0] * sx, y: S[1] * sy };
+        if (i === 0) spiralStart = { x: S[0] * sx + ox2, y: S[1] * sy + oy2 };
         spiralCubics.push({
-          c1x: (S[0] + KAPPA * t0[0]) * sx, c1y: (S[1] + KAPPA * t0[1]) * sy,
-          c2x: (E[0] - KAPPA * t1[0]) * sx, c2y: (E[1] - KAPPA * t1[1]) * sy,
-          ex: E[0] * sx, ey: E[1] * sy,
+          c1x: (S[0] + KAPPA * t0[0]) * sx + ox2, c1y: (S[1] + KAPPA * t0[1]) * sy + oy2,
+          c2x: (E[0] - KAPPA * t1[0]) * sx + ox2, c2y: (E[1] - KAPPA * t1[1]) * sy + oy2,
+          ex: E[0] * sx + ox2, ey: E[1] * sy + oy2,
         });
         d = (d + 1) % 4;
         if (rw < 0.001 || rh < 0.001) break;
@@ -597,7 +607,7 @@ const VISIBILITY = {
   polar:    ["p-size", "p-spokes", "p-center", "p-border"],
   persp:    ["p-size", "p-vpx", "p-hor", "p-border"],
   persp2:   ["p-size", "p-vp12", "p-hor", "p-border"],
-  golden:   ["p-size", "p-spiral", "p-border"],
+  golden:   ["p-size", "p-spiral", "p-truespiral", "p-border"],
   thirds:   ["p-size", "p-border"],
   columns:  ["p-size", "p-cols", "p-gutter", "p-margin", "p-border"],
 };
@@ -605,7 +615,7 @@ const VISIBILITY = {
 const HAS_MINOR = { rect: 1, baseline: 1, iso: 1, tri: 1, diamond: 1, persp: 1, golden: 1, polar: 1 };
 const HAS_CELL = { rect: 1, dot: 1, baseline: 1, brick: 1, iso: 1, tri: 1, diamond: 1, hex: 1, polar: 1, persp: 1, persp2: 1 };
 const CELL_LABEL = { baseline: "Leading (px)", brick: "Row height (px)", hex: "Hex side (px)", polar: "Ring spacing (px)", persp: "Ray spacing (px)", persp2: "Ray spacing (px)" };
-const ALL_PARAMS = ["p-size", "p-cellgutter", "p-sub", "p-angle", "p-isov", "p-cross", "p-vpx", "p-vp12", "p-hor", "p-spokes", "p-center", "p-cols", "p-gutter", "p-margin", "p-brickw", "p-spiral", "p-border"];
+const ALL_PARAMS = ["p-size", "p-cellgutter", "p-sub", "p-angle", "p-isov", "p-cross", "p-vpx", "p-vp12", "p-hor", "p-spokes", "p-center", "p-cols", "p-gutter", "p-margin", "p-brickw", "p-spiral", "p-truespiral", "p-border"];
 
 function syncVisibility() {
   const t = $("type").value;
@@ -669,7 +679,7 @@ $("create").addEventListener("click", async () => {
       spokes: +$("spokes").value || 0, cx: +$("cx").value, cy: +$("cy").value,
       cols: +$("cols").value || 12, gutter: +$("gutter").value || 0, margin: +$("margin").value || 0,
       brickw: +$("brickw").value || 100,
-      spiral: $("spiral").checked, border: $("border").checked,
+      spiral: $("spiral").checked, truespiral: $("truespiral").checked, border: $("border").checked,
       majorColor: $("majorColor").value, majorOpacity: +$("majorOpacity").value,
       majorWidth: +$("majorWidth").value || 1,
       minorColor: $("minorColor").value, minorOpacity: +$("minorOpacity").value,
