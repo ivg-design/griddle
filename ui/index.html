@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Griddle</title>
+<style>
+  :root {
+    --bg: #17181c; --panel: #1f2127; --line: #2c2f37; --text: #d6d8de;
+    --dim: #8b8f9a; --accent: #5aa0ff; --ok: #58c78a; --err: #e46a6a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 12px/1.45 -apple-system, "SF Pro Text", Helvetica, sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+  .wrap { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  h1 { font-size: 13px; margin: 0 0 2px; font-weight: 600; letter-spacing: .02em; }
+  h1 small { color: var(--dim); font-weight: 400; }
+  .card {
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  details { border: 1px solid var(--line); border-radius: 8px; padding: 0; }
+  details > summary {
+    list-style: none; cursor: pointer; padding: 8px 10px; color: var(--dim);
+    font-size: 11px; display: flex; align-items: center; gap: 6px;
+  }
+  details > summary::before { content: "▸"; font-size: 9px; transition: transform .12s; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  details > .body { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .row label { flex: 1; color: var(--dim); }
+  select, input[type=number], input[type=text] {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 5px; padding: 4px 6px; font: inherit; width: 90px;
+  }
+  select, input[type=text] { width: 100%; }
+  input[type=color] { width: 34px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
+  input[type=checkbox] { accent-color: var(--accent); }
+  button {
+    background: var(--accent); color: #0c1622; border: 0; border-radius: 6px;
+    padding: 8px 10px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--line); font-weight: 400; }
+  button.iconbtn { width: 34px; flex: none !important; padding: 4px; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .45; cursor: default; }
+  .btnrow { display: flex; gap: 6px; }
+  .btnrow button { flex: 1; }
+  #status { min-height: 2.6em; color: var(--dim); white-space: pre-wrap; user-select: text; -webkit-user-select: text; }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+  .mini { width: 60px !important; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Griddle <small>— custom grids &times; Rive</small></h1>
+
+  <div class="card">
+    <div class="row">
+      <select id="artboard" title="Target artboard"></select>
+      <button class="secondary iconbtn" id="refresh" title="Reload artboards">&#8635;</button>
+    </div>
+    <select id="type">
+      <optgroup label="Cartesian">
+        <option value="rect">Rectangular</option>
+        <option value="dot">Dot (dash / crosses)</option>
+        <option value="baseline">Baseline</option>
+        <option value="brick">Brick (offset)</option>
+      </optgroup>
+      <optgroup label="Angular">
+        <option value="iso">Isometric</option>
+        <option value="tri">Triangular</option>
+        <option value="diamond">Diamond</option>
+        <option value="hex">Hexagonal</option>
+        <option value="polar">Polar (rings + spokes)</option>
+      </optgroup>
+      <optgroup label="Perspective">
+        <option value="persp">Perspective (1-point)</option>
+        <option value="persp2">Perspective (2-point)</option>
+      </optgroup>
+      <optgroup label="Composition">
+        <option value="golden">Golden ratio</option>
+        <option value="thirds">Rule of thirds</option>
+        <option value="columns">Layout columns</option>
+      </optgroup>
+    </select>
+    <input type="text" id="name" placeholder="Name (auto: Guides_type_N)" spellcheck="false" />
+    <div class="row" id="p-cell"><label>Cell size (px)</label><input type="number" id="cell" value="50" min="2" /></div>
+  </div>
+
+  <details id="d-options" open>
+    <summary>Grid options</summary>
+    <div class="body">
+      <div class="row" id="p-size">
+        <label>Area W × H</label>
+        <input type="number" id="w" class="mini" value="1920" min="10" />
+        <input type="number" id="h" class="mini" value="1080" min="10" />
+        <button class="secondary iconbtn" id="fit" title="Use artboard size">fit</button>
+      </div>
+      <div class="row" id="p-sub"><label>Subdivisions (per cell)</label><input type="number" id="sub" value="0" min="0" max="10" title="Divide each cell into N parts (0/1 = none)" /></div>
+      <div class="row" id="p-angle"><label>Angle (deg)</label><input type="number" id="angle" value="30" min="15" max="75" /></div>
+      <div class="row" id="p-isov"><label>Vertical lines</label><input type="checkbox" id="isov" checked /></div>
+      <div class="row" id="p-dotstyle"><label>Dot style</label>
+        <select id="dotstyle" style="width:150px">
+          <option value="dots">dots (dash-ready)</option>
+          <option value="crosses">crosses (+)</option>
+        </select>
+      </div>
+      <div class="row" id="p-cross"><label>Cross size (px)</label><input type="number" id="cross" value="8" min="2" max="40" /></div>
+      <div class="row" id="p-vpx"><label>Vanishing X (%)</label><input type="number" id="vpx" value="50" min="0" max="100" /></div>
+      <div class="row" id="p-vp12"><label>VP1 / VP2 X (%)</label>
+        <input type="number" id="vp1x" class="mini" value="-20" min="-200" max="300" title="left vanishing point, % of width (can be off-canvas)" />
+        <input type="number" id="vp2x" class="mini" value="120" min="-200" max="300" title="right vanishing point, % of width (can be off-canvas)" />
+      </div>
+      <div class="row" id="p-hor"><label>Horizon Y (%)</label><input type="number" id="hor" value="35" min="0" max="95" /></div>
+      <div class="row" id="p-spokes"><label>Spokes</label><input type="number" id="spokes" value="12" min="0" max="72" /></div>
+      <div class="row" id="p-center"><label>Center X / Y (%)</label>
+        <input type="number" id="cx" class="mini" value="50" min="0" max="100" />
+        <input type="number" id="cy" class="mini" value="50" min="0" max="100" />
+      </div>
+      <div class="row" id="p-cols"><label>Columns</label><input type="number" id="cols" value="12" min="1" max="48" /></div>
+      <div class="row" id="p-gutter"><label>Gutter (px)</label><input type="number" id="gutter" value="20" min="0" max="200" /></div>
+      <div class="row" id="p-margin"><label>Margin (px)</label><input type="number" id="margin" value="0" min="0" max="500" /></div>
+      <div class="row" id="p-brickw"><label>Brick width (px)</label><input type="number" id="brickw" value="100" min="4" max="1000" /></div>
+      <div class="row" id="p-spiral"><label>Golden spiral</label><input type="checkbox" id="spiral" checked /></div>
+      <div class="row" id="p-border"><label>Border</label><input type="checkbox" id="border" checked /></div>
+    </div>
+  </details>
+
+  <details id="d-stroke">
+    <summary>Stroke</summary>
+    <div class="body">
+      <div class="row"><label>Major</label>
+        <input type="color" id="majorColor" value="#808080" />
+        <input type="number" id="majorOpacity" class="mini" value="40" min="0" max="100" title="opacity %" />
+        <input type="number" id="majorWidth" class="mini" value="1" min="0.25" max="10" step="0.25" title="width px" />
+      </div>
+      <div class="row" id="p-sepsub"><label>Separate subdivision style</label><input type="checkbox" id="sepsub" /></div>
+      <div class="row hidden" id="p-minorstroke"><label>Subdivision</label>
+        <input type="color" id="minorColor" value="#808080" />
+        <input type="number" id="minorOpacity" class="mini" value="20" min="0" max="100" title="opacity %" />
+        <input type="number" id="minorWidth" class="mini" value="0.5" min="0.25" max="10" step="0.25" title="width px" />
+      </div>
+    </div>
+  </details>
+
+  <div class="btnrow">
+    <button id="create">Create grid</button>
+    <button class="secondary" id="removeLast" disabled>Remove last</button>
+  </div>
+  <div id="status">Connecting to Rive MCP…</div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// MCP transport: one deterministic JSON-RPC tools/call POST per action,
+// relayed through the Rust backend (no agent, no AI).
+// ---------------------------------------------------------------------------
+let rpcId = 1;
+async function mcp(tool, args) {
+  const payload = JSON.stringify({
+    jsonrpc: "2.0", id: rpcId++, method: "tools/call",
+    params: { name: tool, arguments: args },
+  });
+  const raw = await window.__TAURI__.core.invoke("mcp_call", { payload });
+  const rpc = JSON.parse(raw);
+  if (rpc.error) throw new Error(rpc.error.message || "MCP error");
+  const inner = rpc.result?.structuredContent?.content ?? rpc.result?.content?.[0]?.text;
+  if (typeof inner === "string") { try { return JSON.parse(inner); } catch { return inner; } }
+  return inner;
+}
+
+// ---------------------------------------------------------------------------
+// Grid math (port of lib/GridCore.luau) — emits authored line segments and
+// cubic spiral data, clipped to [0,w]x[0,h].
+// ---------------------------------------------------------------------------
+const KAPPA = 0.5522847498;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+function clipSeg(x1, y1, x2, y2, w, h) { // Liang-Barsky, returns [x1,y1,x2,y2] or null
+  const dx = x2 - x1, dy = y2 - y1;
+  let t0 = 0, t1 = 1;
+  const p = [-dx, dx, -dy, dy], q = [x1, w - x1, y1, h - y1];
+  for (let i = 0; i < 4; i++) {
+    if (p[i] === 0) { if (q[i] < 0) return null; }
+    else {
+      const r = q[i] / p[i];
+      if (p[i] < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+      else { if (r < t0) return null; if (r < t1) t1 = r; }
+    }
+  }
+  return [x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy];
+}
+
+// One family of parallel lines: emit(c) -> raw [x1,y1,x2,y2].
+function family(major, minor, cmin, cmax, step, sub, emit, w, h) {
+  const span = cmax - cmin;
+  if (span <= 0 || step <= 0) return;
+  let eff = step;
+  while (span / eff > 400) eff *= 2;
+  // sub = number of sub-cells per cell -> sub-1 minor lines between majors
+  const minorStep = eff / Math.max(1, sub);
+  let c = Math.floor(cmin / eff) * eff;
+  for (let guard = 0; c <= cmax + 0.001 && guard < 402; guard++, c += eff) {
+    if (c >= cmin - 0.001) {
+      const s = clipSeg(...emit(c), w, h);
+      if (s) major.push(s);
+    }
+    for (let k = 1; k <= sub - 1; k++) {
+      const mc = c + k * minorStep;
+      if (mc >= cmin - 0.001 && mc <= cmax + 0.001) {
+        const s = clipSeg(...emit(mc), w, h);
+        if (s) minor.push(s);
+      }
+    }
+  }
+}
+
+// Returns { major: segs, minor: segs, polys: [{name, commands}], spiralStart,
+// spiralCubics } — polys are ready-made multi-vertex paths (zigzags, rings).
+function buildGrid(p) {
+  const { type, w, h, sub, angle, isov, cross, vpx, hor, spiral } = p;
+  let cell = Math.max(2, p.cell);
+  const major = [], minor = [], polys = [];
+  let spiralStart = null, spiralCubics = [];
+
+  if (type === "rect") {
+    family(major, minor, 0, w, cell, sub, c => [c, 0, c, h], w, h);
+    family(major, minor, 0, h, cell, sub, c => [0, c, w, c], w, h);
+  } else if (type === "baseline") {
+    family(major, minor, 0, h, cell, sub, c => [0, c, w, c], w, h);
+  } else if (type === "thirds") {
+    major.push([w / 3, 0, w / 3, h], [2 * w / 3, 0, 2 * w / 3, h]);
+    major.push([0, h / 3, w, h / 3], [0, 2 * h / 3, w, 2 * h / 3]);
+  } else if (type === "columns") {
+    const n = clamp(Math.floor(p.cols), 1, 48);
+    const m = clamp(p.margin, 0, w / 2), g = clamp(p.gutter, 0, w);
+    const colW = (w - 2 * m - (n - 1) * g) / n;
+    if (colW <= 0) throw new Error("Columns don't fit: reduce count, gutter, or margin.");
+    for (let i = 0; i < n; i++) {
+      const x0 = m + i * (colW + g);
+      major.push([x0, 0, x0, h], [x0 + colW, 0, x0 + colW, h]);
+    }
+  } else if (type === "brick") {
+    const rowH = cell;
+    const bw = Math.max(4, p.brickw);
+    let nRows = Math.ceil(h / rowH);
+    for (let r = 0; r <= nRows; r++) major.push([0, Math.min(r * rowH, h), w, Math.min(r * rowH, h)]);
+    for (let r = 0; r < nRows; r++) {
+      const off = (r % 2) * bw / 2;
+      const y0 = r * rowH, y1 = Math.min((r + 1) * rowH, h);
+      for (let x = off === 0 ? bw : off; x <= w + 0.001; x += bw) {
+        if (x <= w) major.push([x, y0, x, y1]);
+      }
+    }
+  } else if (type === "hex") {
+    // Pointy-top honeycomb, cell = hex side length. Shared row boundaries
+    // become single zigzag polylines; side edges are short verticals.
+    let s = cell;
+    let colW = Math.sqrt(3) * s, rowH = 1.5 * s;
+    while ((w / colW + 1) * (h / rowH + 1) > 1000) { s *= 2; colW = Math.sqrt(3) * s; rowH = 1.5 * s; }
+    if (s !== cell) p.effectiveCell = s;
+    const nRows = Math.ceil(h / rowH) + 1;
+    for (let r = 0; r <= nRows; r++) {
+      const cyr = r * rowH;
+      if (cyr - s > h + s) break;
+      const ox = (r % 2) * colW / 2;
+      const i0 = Math.floor((0 - ox) / (colW / 2)) - 1;
+      const i1 = Math.ceil((w - ox) / (colW / 2)) + 1;
+      const cmds = [];
+      for (let i = i0; i <= i1; i++) {
+        const x = ox + i * colW / 2;
+        const y = (((i % 2) + 2) % 2 === 0) ? cyr - s : cyr - s / 2;
+        cmds.push({ commandType: cmds.length ? "lineTo" : "moveTo", x: rnd(x), y: rnd(y) });
+      }
+      polys.push({ name: `zig${r}`, commands: cmds });
+      // vertical side edges between hexes of this row
+      if (cyr - s / 2 <= h) {
+        for (let x = ox + colW / 2 - colW * Math.ceil((ox + colW / 2) / colW); x <= w + 0.001; x += colW) {
+          if (x < -0.001) continue;
+          const s2 = clipSeg(x, cyr - s / 2, x, cyr + s / 2, w, h);
+          if (s2) major.push(s2);
+        }
+      }
+    }
+  } else if (type === "polar") {
+    const ccx = w * clamp(p.cx, 0, 100) / 100;
+    const ccy = h * clamp(p.cy, 0, 100) / 100;
+    const maxR = Math.max(
+      Math.hypot(ccx, ccy), Math.hypot(w - ccx, ccy),
+      Math.hypot(ccx, h - ccy), Math.hypot(w - ccx, h - ccy)
+    );
+    let ringStep = cell;
+    while (maxR / ringStep > 150) ringStep *= 2;
+    if (ringStep !== cell) p.effectiveCell = ringStep;
+    for (let r = ringStep, i = 0; r <= maxR; r += ringStep, i++) {
+      const k = KAPPA * r;
+      polys.push({ name: `ring${i}`, commands: [
+        { commandType: "moveTo", x: rnd(ccx + r), y: rnd(ccy) },
+        { commandType: "cubicTo", control1X: rnd(ccx + r), control1Y: rnd(ccy + k), control2X: rnd(ccx + k), control2Y: rnd(ccy + r), endX: rnd(ccx), endY: rnd(ccy + r) },
+        { commandType: "cubicTo", control1X: rnd(ccx - k), control1Y: rnd(ccy + r), control2X: rnd(ccx - r), control2Y: rnd(ccy + k), endX: rnd(ccx - r), endY: rnd(ccy) },
+        { commandType: "cubicTo", control1X: rnd(ccx - r), control1Y: rnd(ccy - k), control2X: rnd(ccx - k), control2Y: rnd(ccy - r), endX: rnd(ccx), endY: rnd(ccy - r) },
+        { commandType: "cubicTo", control1X: rnd(ccx + k), control1Y: rnd(ccy - r), control2X: rnd(ccx + r), control2Y: rnd(ccy - k), endX: rnd(ccx + r), endY: rnd(ccy) },
+        { commandType: "close" },
+      ]});
+    }
+    const n = clamp(Math.floor(p.spokes), 0, 72);
+    for (let i = 0; i < n; i++) {
+      const a = i * 2 * Math.PI / n;
+      const s2 = clipSeg(ccx, ccy, ccx + maxR * Math.cos(a), ccy + maxR * Math.sin(a), w, h);
+      if (s2) minor.push(s2);
+    }
+  } else if (type === "persp2") {
+    const yh = h * clamp(hor, 0, 95) / 100;
+    major.push([0, yh, w, yh]);
+    const vps = [
+      { vx: w * clamp(p.vp1x, -200, 300) / 100, edgeX: w },
+      { vx: w * clamp(p.vp2x, -200, 300) / 100, edgeX: 0 },
+    ];
+    for (const { vx, edgeX } of vps) {
+      const maxK = Math.min(80, Math.ceil(3 * h / cell));
+      for (let k = -maxK; k <= maxK; k++) {
+        const ty = yh + k * cell;
+        const dx = edgeX - vx, dy = ty - yh;
+        const len = Math.hypot(dx, dy);
+        if (len < 0.001) continue;
+        const reach = 3 * (w + h) / len;
+        const s2 = clipSeg(vx - dx * reach, yh - dy * reach, vx + dx * reach, yh + dy * reach, w, h);
+        if (s2) major.push(s2);
+      }
+    }
+  } else if (type === "dot") {
+    if (p.dotstyle === "dots") {
+      // Dash-ready: one full horizontal line per row. Add a Dash effect to
+      // the stroke (dash 0.1, gap = cell - 0.1, round cap is pre-set) and
+      // every dash collapses into a dot of stroke-width size at each
+      // lattice point. Rows only — columns would double the dots.
+      family(major, minor, 0, h, cell, 0, c => [0, c, w, c], w, h);
+    } else {
+      // Crosses: 2 full short lines per lattice point (not 4 spokes).
+      let eff = cell;
+      while (2 * (w / eff + 1) * (h / eff + 1) > 1200) eff *= 2;
+      const r = clamp(cross, 2, 40) / 2;
+      for (let y = 0; y <= h + 0.001; y += eff) {
+        for (let x = 0; x <= w + 0.001; x += eff) {
+          const xr = Math.min(x + r, w), xl = Math.max(x - r, 0);
+          const yd = Math.min(y + r, h), yu = Math.max(y - r, 0);
+          if (xr - xl > 0.01) major.push([xl, y, xr, y]);
+          if (yd - yu > 0.01) major.push([x, yu, x, yd]);
+        }
+      }
+      if (eff !== cell) p.effectiveCell = eff;
+    }
+  } else if (type === "iso" || type === "diamond") {
+    const tanA = Math.tan(clamp(angle, 15, 75) * Math.PI / 180);
+    family(major, minor, -w * tanA, h, cell, sub, c => [0, c, w, c + w * tanA], w, h);
+    family(major, minor, 0, h + w * tanA, cell, sub, c => [0, c, w, c - w * tanA], w, h);
+    if (type === "iso" && isov) {
+      family(major, minor, 0, w, cell / (2 * tanA), sub, c => [c, 0, c, h], w, h);
+    }
+  } else if (type === "tri") {
+    const rowH = cell * Math.sqrt(3) / 2, slope = Math.sqrt(3);
+    family(major, minor, 0, h, rowH, sub, c => [0, c, w, c], w, h);
+    family(major, minor, -w * slope, h, slope * cell, sub, c => [0, c, w, c + w * slope], w, h);
+    family(major, minor, 0, h + w * slope, slope * cell, sub, c => [0, c, w, c - w * slope], w, h);
+  } else if (type === "persp") {
+    const vx = w * clamp(vpx, 0, 100) / 100;
+    const yh = h * clamp(hor, 0, 95) / 100;
+    const reach = 2 * (w + h);
+    major.push([0, yh, w, yh]);
+    const maxK = Math.min(120, Math.ceil(1.5 * w / cell));
+    for (let k = -maxK; k <= maxK; k++) {
+      const dx = k * cell, dy = h - yh;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.001) continue;
+      const ux = dx / len, uy = dy / len;
+      const s = clipSeg(vx - reach * ux, yh - reach * uy, vx + reach * ux, yh + reach * uy, w, h);
+      if (s) major.push(s);
+    }
+    let prevY = h + 10;
+    for (let n = 1; n <= 60; n++) {
+      const y = yh + (h - yh) / n;
+      if (prevY - y < 1.5) break;
+      minor.push([0, y, w, y]);
+      prevY = y;
+    }
+  } else if (type === "golden") {
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const gx = w / phi, gy = h / phi;
+    major.push([w - gx, 0, w - gx, h], [gx, 0, gx, h], [0, h - gy, w, h - gy], [0, gy, w, gy]);
+    if (spiral) {
+      const sx = w / phi, sy = h;
+      let x = 0, y = 0, rw = phi, rh = 1, d = 0;
+      for (let i = 0; i < 10; i++) {
+        let s, S, E, C, div;
+        if (d === 0) {
+          s = rh; S = [x, y + s]; E = [x + s, y]; C = [x + s, y + s];
+          div = [(x + s), y, (x + s), y + s]; x += s; rw -= s;
+        } else if (d === 1) {
+          s = rw; S = [x, y]; E = [x + s, y + s]; C = [x, y + s];
+          div = [x, y + s, x + s, y + s]; y += s; rh -= s;
+        } else if (d === 2) {
+          s = rh; S = [x + rw, y]; E = [x + rw - s, y + s]; C = [x + rw - s, y];
+          div = [x + rw - s, y, x + rw - s, y + s]; rw -= s;
+        } else {
+          s = rw; S = [x + s, y + rh]; E = [x, y + rh - s]; C = [x + s, y + rh - s];
+          div = [x, y + rh - s, x + s, y + rh - s]; rh -= s;
+        }
+        minor.push([div[0] * sx, div[1] * sy, div[2] * sx, div[3] * sy]);
+        // quarter-arc cubic with tangent magnitude = radius
+        const r0 = [S[0] - C[0], S[1] - C[1]], r1 = [E[0] - C[0], E[1] - C[1]];
+        const ch = [E[0] - S[0], E[1] - S[1]];
+        let t0 = [-r0[1], r0[0]]; if (t0[0] * ch[0] + t0[1] * ch[1] < 0) t0 = [r0[1], -r0[0]];
+        let t1 = [-r1[1], r1[0]]; if (t1[0] * ch[0] + t1[1] * ch[1] < 0) t1 = [r1[1], -r1[0]];
+        if (i === 0) spiralStart = { x: S[0] * sx, y: S[1] * sy };
+        spiralCubics.push({
+          c1x: (S[0] + KAPPA * t0[0]) * sx, c1y: (S[1] + KAPPA * t0[1]) * sy,
+          c2x: (E[0] - KAPPA * t1[0]) * sx, c2y: (E[1] - KAPPA * t1[1]) * sy,
+          ex: E[0] * sx, ey: E[1] * sy,
+        });
+        d = (d + 1) % 4;
+        if (rw < 0.001 || rh < 0.001) break;
+      }
+    }
+  }
+  return { major, minor, polys, spiralStart, spiralCubics };
+}
+
+// ---------------------------------------------------------------------------
+// Shape JSON assembly for path_editor createShapes
+// ---------------------------------------------------------------------------
+const rnd = v => Math.round(v * 100) / 100;
+function segsToPaths(segs, prefix) {
+  return segs.map((s, i) => ({
+    name: `${prefix}${i}`,
+    commands: [
+      { commandType: "moveTo", x: rnd(s[0]), y: rnd(s[1]) },
+      { commandType: "lineTo", x: rnd(s[2]), y: rnd(s[3]) },
+    ],
+  }));
+}
+function argb(hex, opacityPct) {
+  const a = Math.round(clamp(opacityPct, 0, 100) / 100 * 255).toString(16).padStart(2, "0");
+  return `#${a}${hex.slice(1)}`.toUpperCase();
+}
+
+let counter = 1;
+let lastIds = [];
+let lastLabel = "";
+
+// Builds { majorPaths, minorPaths, baseName } — assembly into shapes happens
+// in the create handler (single shape, or grouped container + two children).
+function buildPaths(p) {
+  const g = buildGrid(p);
+  const baseName = p.name || `Guides_${p.type}_${counter++}`;
+
+  const majorPaths = segsToPaths(g.major, "L").concat(g.polys);
+  if (g.spiralStart) {
+    const cmds = [{ commandType: "moveTo", x: rnd(g.spiralStart.x), y: rnd(g.spiralStart.y) }];
+    for (const c of g.spiralCubics) cmds.push({
+      commandType: "cubicTo",
+      control1X: rnd(c.c1x), control1Y: rnd(c.c1y),
+      control2X: rnd(c.c2x), control2Y: rnd(c.c2y),
+      endX: rnd(c.ex), endY: rnd(c.ey),
+    });
+    majorPaths.push({ name: "spiral", commands: cmds });
+  }
+  if (p.border) majorPaths.push({
+    name: "border",
+    commands: [
+      { commandType: "moveTo", x: 0, y: 0 }, { commandType: "lineTo", x: p.w, y: 0 },
+      { commandType: "lineTo", x: p.w, y: p.h }, { commandType: "lineTo", x: 0, y: p.h },
+      { commandType: "close" },
+    ],
+  });
+  return { majorPaths, minorPaths: segsToPaths(g.minor, "S"), baseName };
+}
+
+const majorPaint = p => ({ paintType: "stroke", width: p.majorWidth, color: argb(p.majorColor, p.majorOpacity) });
+const minorPaint = p => ({ paintType: "stroke", width: p.minorWidth, color: argb(p.minorColor, p.minorOpacity) });
+
+async function createShapes(shapes) {
+  const res = await mcp("path_editor", { command: "createShapes", data: { createShapes: { shapes } } });
+  if (res && res.success === false) throw new Error(JSON.stringify(res.errors || res));
+}
+
+// find_objects can match several shapes with the same name; ids grow
+// monotonically, so the newest exact match is ours.
+async function findNewestByName(name) {
+  const res = await mcp("find_objects", { name, type: "shape" });
+  const exact = (res.objects || []).filter(o => o.name === name);
+  exact.sort((a, b) => Number(a.id.split("-")[1] || 0) - Number(b.id.split("-")[1] || 0));
+  const id = exact.length ? exact[exact.length - 1].id : null;
+  if (!id) throw new Error(`Created shape "${name}" not found afterwards.`);
+  return id;
+}
+
+// Dash-ready dots need a round cap so a 0.1px dash renders as a circle.
+async function setRoundCaps(shapeId) {
+  const res = await mcp("query_objects", { objectIds: [shapeId], depth: 2 });
+  const pv = {};
+  for (const o of res.objects || []) {
+    if ((o.types || []).includes("Stroke")) pv[o.id] = { "48": 1 }; // cap = round
+  }
+  if (Object.keys(pv).length) await mcp("set_property_values", { propertyValues: pv });
+}
+
+// ---------------------------------------------------------------------------
+// UI wiring — progressive disclosure: only the selected grid's parameters
+// are visible; stroke styling stays collapsed until opened.
+// ---------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+const status = (msg, cls) => { const el = $("status"); el.textContent = msg; el.className = cls || ""; };
+
+const VISIBILITY = {
+  rect:     ["p-size", "p-sub", "p-border"],
+  dot:      ["p-size", "p-dotstyle", "p-border"],
+  baseline: ["p-size", "p-sub", "p-border"],
+  brick:    ["p-size", "p-brickw", "p-border"],
+  iso:      ["p-size", "p-sub", "p-angle", "p-isov", "p-border"],
+  tri:      ["p-size", "p-sub", "p-border"],
+  diamond:  ["p-size", "p-sub", "p-angle", "p-border"],
+  hex:      ["p-size", "p-border"],
+  polar:    ["p-size", "p-spokes", "p-center", "p-border"],
+  persp:    ["p-size", "p-vpx", "p-hor", "p-border"],
+  persp2:   ["p-size", "p-vp12", "p-hor", "p-border"],
+  golden:   ["p-size", "p-spiral", "p-border"],
+  thirds:   ["p-size", "p-border"],
+  columns:  ["p-size", "p-cols", "p-gutter", "p-margin", "p-border"],
+};
+// which types have a separately-stylable minor line set
+const HAS_MINOR = { rect: 1, baseline: 1, iso: 1, tri: 1, diamond: 1, persp: 1, golden: 1, polar: 1 };
+const HAS_CELL = { rect: 1, dot: 1, baseline: 1, brick: 1, iso: 1, tri: 1, diamond: 1, hex: 1, polar: 1, persp: 1, persp2: 1 };
+const CELL_LABEL = { baseline: "Leading (px)", brick: "Row height (px)", hex: "Hex side (px)", polar: "Ring spacing (px)", persp: "Ray spacing (px)", persp2: "Ray spacing (px)" };
+const ALL_PARAMS = ["p-size", "p-sub", "p-angle", "p-isov", "p-dotstyle", "p-cross", "p-vpx", "p-vp12", "p-hor", "p-spokes", "p-center", "p-cols", "p-gutter", "p-margin", "p-brickw", "p-spiral", "p-border"];
+
+function syncVisibility() {
+  const t = $("type").value;
+  const show = VISIBILITY[t] || [];
+  for (const id of ALL_PARAMS) $(id).classList.toggle("hidden", !show.includes(id));
+  $("p-cell").classList.toggle("hidden", !HAS_CELL[t]);
+  $("p-cell").querySelector("label").textContent = CELL_LABEL[t] || "Cell size (px)";
+  $("p-cross").classList.toggle("hidden", !(t === "dot" && $("dotstyle").value === "crosses"));
+  $("p-sepsub").classList.toggle("hidden", !HAS_MINOR[t]);
+  $("p-minorstroke").classList.toggle("hidden", !(HAS_MINOR[t] && $("sepsub").checked));
+  $("name").placeholder = `Name (auto: Guides_${t}_${counter})`;
+}
+$("type").addEventListener("change", syncVisibility);
+$("dotstyle").addEventListener("change", syncVisibility);
+$("sepsub").addEventListener("change", syncVisibility);
+
+async function loadArtboards() {
+  const res = await mcp("list_artboards", {});
+  const sel = $("artboard");
+  sel.innerHTML = "";
+  for (const ab of res.artboards || []) {
+    const opt = document.createElement("option");
+    opt.value = ab.id;
+    opt.textContent = ab.name + (ab.isActive ? " (active)" : "");
+    if (ab.id === res.selectionArtboardId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  if (!sel.options.length) throw new Error("No artboards — open a file in Rive.");
+  return res;
+}
+
+async function fitArtboard() {
+  const id = $("artboard").value;
+  if (!id) return;
+  const res = await mcp("query_property_values", { propertyKeys: { [id]: [7, 8] } });
+  const v = res.values?.[id];
+  if (v) { $("w").value = Math.round(v["7"]); $("h").value = Math.round(v["8"]); }
+}
+
+$("refresh").addEventListener("click", async () => {
+  try { await loadArtboards(); await fitArtboard(); status("Artboards reloaded.", "ok"); }
+  catch (e) { status(String(e.message || e), "err"); }
+});
+$("fit").addEventListener("click", async () => {
+  try { await fitArtboard(); status("Size set from artboard.", "ok"); }
+  catch (e) { status(String(e.message || e), "err"); }
+});
+$("artboard").addEventListener("change", () => fitArtboard().catch(() => {}));
+
+$("create").addEventListener("click", async () => {
+  const btn = $("create");
+  btn.disabled = true;
+  try {
+    const p = {
+      type: $("type").value,
+      name: $("name").value.trim(),
+      w: clamp(+$("w").value || 0, 10, 8000), h: clamp(+$("h").value || 0, 10, 8000),
+      cell: +$("cell").value || 50, sub: clamp(Math.floor(+$("sub").value || 0), 0, 10),
+      angle: +$("angle").value || 30, isov: $("isov").checked,
+      dotstyle: $("dotstyle").value,
+      cross: +$("cross").value || 8, vpx: +$("vpx").value || 50, hor: +$("hor").value || 35,
+      vp1x: +$("vp1x").value, vp2x: +$("vp2x").value,
+      spokes: +$("spokes").value || 0, cx: +$("cx").value, cy: +$("cy").value,
+      cols: +$("cols").value || 12, gutter: +$("gutter").value || 0, margin: +$("margin").value || 0,
+      brickw: +$("brickw").value || 100,
+      spiral: $("spiral").checked, border: $("border").checked,
+      majorColor: $("majorColor").value, majorOpacity: +$("majorOpacity").value,
+      majorWidth: +$("majorWidth").value || 1,
+      minorColor: $("minorColor").value, minorOpacity: +$("minorOpacity").value,
+      minorWidth: +$("minorWidth").value || 0.5,
+    };
+    const artboardId = $("artboard").value;
+    if (!artboardId) throw new Error("Pick an artboard first.");
+
+    const { majorPaths, minorPaths, baseName } = buildPaths(p);
+    const grouped = $("sepsub").checked && HAS_MINOR[p.type] && minorPaths.length > 0;
+    const nPaths = majorPaths.length + minorPaths.length;
+    if (!nPaths) throw new Error("Nothing to create for these settings.");
+    status(`Creating ${nPaths} guide paths…`);
+
+    if (grouped) {
+      // Path-less shape = group container; both styled shapes nest inside it
+      // so the whole grid moves/locks as one unit.
+      await createShapes([{ name: baseName, parentId: artboardId, x: 0, y: 0, paths: [] }]);
+      const groupId = await findNewestByName(baseName);
+      await createShapes([
+        { name: `${baseName}_major`, parentId: groupId, x: 0, y: 0, paints: [majorPaint(p)], paths: majorPaths },
+        { name: `${baseName}_sub`, parentId: groupId, x: 0, y: 0, paints: [minorPaint(p)], paths: minorPaths },
+      ]);
+      lastIds = [groupId];
+    } else {
+      // Single shape, single styling — subdivision paths share the stroke.
+      await createShapes([{
+        name: baseName, parentId: artboardId, x: 0, y: 0,
+        paints: [majorPaint(p)], paths: majorPaths.concat(minorPaths),
+      }]);
+      lastIds = [await findNewestByName(baseName)];
+    }
+    lastLabel = baseName;
+
+    let hint = " Lock it in the hierarchy to keep guides in place.";
+    if (p.type === "dot" && p.dotstyle === "dots") {
+      await setRoundCaps(lastIds[0]);
+      hint = ` Now add a Dash effect to the stroke: dash 0.1, gap ${(p.cell - 0.1).toFixed(1)} — each dash becomes a dot the size of the stroke width (round cap is pre-set).`;
+    }
+
+    $("removeLast").disabled = false;
+    $("name").value = "";
+    syncVisibility();
+    const eff = p.effectiveCell ? ` (cell auto-adjusted to ${p.effectiveCell}px)` : "";
+    status(`Created ${baseName}${grouped ? " (group with _major/_sub)" : ""} — ${nPaths} paths${eff}.${hint}`, "ok");
+  } catch (e) {
+    status(String(e.message || e), "err");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("removeLast").addEventListener("click", async () => {
+  try {
+    if (!lastIds.length) throw new Error("Nothing to remove.");
+    await mcp("delete_objects", { objectIds: lastIds });
+    status(`Removed ${lastLabel}.`, "ok");
+    lastIds = []; lastLabel = "";
+    $("removeLast").disabled = true;
+  } catch (e) {
+    status(String(e.message || e), "err");
+  }
+});
+
+(async () => {
+  syncVisibility();
+  try {
+    await loadArtboards();
+    await fitArtboard();
+    status("Connected to Rive MCP.", "ok");
+  } catch (e) {
+    status("Rive MCP not reachable at 127.0.0.1:9791 — is the editor running? " + (e.message || e), "err");
+  }
+})();
+</script>
+</body>
+</html>
