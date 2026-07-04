@@ -35,6 +35,10 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Full ad-hoc bundle signature (not just linker-signed): Gatekeeper
+          # then treats the app as "unidentified developer" instead of
+          # "damaged", so Settings > Privacy & Security offers "Open Anyway".
+          APPLE_SIGNING_IDENTITY: "-"
         with:
           tagName: v__VERSION__
           releaseName: "Griddle v__VERSION__"
@@ -45,7 +49,7 @@ jobs:
 
             Requires the Rive editor running with a file open (MCP server on 127.0.0.1:9791).
 
-            macOS builds are unsigned — right-click → Open on first launch, or run: xattr -dr com.apple.quarantine /Applications/Griddle.app
+            macOS builds are ad-hoc signed (not notarized). First launch: open the app once (it will be blocked), then System Settings > Privacy & Security > "Open Anyway". Or skip the dance with: xattr -dr com.apple.quarantine /Applications/Griddle.app
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
